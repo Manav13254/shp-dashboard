@@ -36,7 +36,10 @@ def create_app(config_class=Config):
     db.init_app(app)
 
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception:
+            pass
 
         # Clean up any orphaned 'running' logs from previous server restarts
         from .models import RefreshLog

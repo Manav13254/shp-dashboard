@@ -17,4 +17,4 @@ ENV PORT=5000
 ENV PYTHONUNBUFFERED=1
 
 # Command to run the server
-CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120"]
+CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "--preload"]
