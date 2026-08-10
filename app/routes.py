@@ -58,6 +58,13 @@ def api_status():
 def api_trigger_refresh():
     """Manually trigger an incremental refresh in the background (admin use)."""
     app = current_app._get_current_object()
+    if not app.config.get("ENABLE_SCRAPER"):
+        return jsonify({
+            "status": "disabled",
+            "message": "ENABLE_SCRAPER is off on this host. NSE blocks most cloud "
+                       "IPs with 403 - run local_refresh.py from a non-blocked "
+                       "machine instead."
+        }), 403
     threading.Thread(target=run_refresh, args=(app,), daemon=True).start()
     return jsonify({"status": "started"})
 
@@ -70,5 +77,12 @@ def api_trigger_bootstrap():
     can take a long time for ~2000 stocks.
     """
     app = current_app._get_current_object()
+    if not app.config.get("ENABLE_SCRAPER"):
+        return jsonify({
+            "status": "disabled",
+            "message": "ENABLE_SCRAPER is off on this host. NSE blocks most cloud "
+                       "IPs with 403 - run local_refresh.py from a non-blocked "
+                       "machine instead."
+        }), 403
     threading.Thread(target=bootstrap_all_stocks, args=(app,), daemon=True).start()
     return jsonify({"status": "bootstrap_started"})
