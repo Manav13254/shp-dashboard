@@ -34,3 +34,11 @@ class Config:
 
     # Delay (seconds) between requests per worker, to avoid rate limiting/bans
     REQUEST_DELAY = 0.5
+
+    # Whether THIS process is allowed to scrape NSE itself (bootstrap thread +
+    # daily APScheduler job). Leave this OFF on the deployed web host, since
+    # NSE blocks most cloud/datacenter IPs with a 403 regardless of headers.
+    # Turn it ON only on the machine you actually want scraping from
+    # (e.g. your local machine, via local_refresh.py, or set
+    # ENABLE_SCRAPER=true in env if you deploy somewhere NSE doesn't block).
+    ENABLE_SCRAPER = os.environ.get("ENABLE_SCRAPER", "false").lower() == "true"

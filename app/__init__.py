@@ -57,11 +57,22 @@ def create_app(config_class=Config):
         except Exception:
             pass
 
-        # If DB has 0 stocks (fresh container deploy), trigger background bootstrap
+        # If DB has 0 stocks (fresh container deploy), trigger background bootstrap.
+        # Only do this when ENABLE_SCRAPER=true — on the deployed host this is
+        # normally OFF because NSE 403-blocks most cloud IPs. Symbols alone are
+        # cheap (bundled CSV fallback), but the shareholding refresh that follows
+        # bootstrap is the expensive part we want to run from local_refresh.py
+        # instead. If you want the deployed host to also attempt scraping,
+        # set ENABLE_SCRAPER=true in its environment.
         try:
-            if Stock.query.count() == 0:
+            if app.config.get("ENABLE_SCRAPER") and Stock.query.count() == 0:
                 logging.info("Fresh database detected (0 stocks). Triggering background bootstrap...")
                 threading.Thread(target=bootstrap_all_stocks, args=(app,), daemon=True).start()
+            elif Stock.query.count() == 0:
+                logging.info(
+                    "Fresh database detected (0 stocks), but ENABLE_SCRAPER is off on this host. "
+                    "Run local_refresh.py from a machine NSE doesn't block to populate data."
+                )
         except Exception:
             pass
 

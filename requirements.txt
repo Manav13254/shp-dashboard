@@ -1,6 +1,6 @@
 Flask>=3.0
 Flask-SQLAlchemy>=3.1
-# psycopg2-binary>=2.9   # only needed for PostgreSQL in production
+psycopg2-binary>=2.9   # needed for PostgreSQL (deployed DB + local_refresh.py)
 APScheduler>=3.10
 nse>=3.2.1
 requests>=2.31
