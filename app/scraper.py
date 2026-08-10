@@ -137,16 +137,26 @@ def refresh_stock(nse_session, stock, request_delay=0.1, db_lock=None):
     take the latest 2, parse both, and update the Stock row in place.
     Returns True if changed, False if nothing changed. Thread-safe when db_lock is passed.
     """
-    try:
-        filings = nse_session.shareholding(stock.symbol)
-    except Exception as e:
-        logger.warning("filings fetch failed for %s: %s", stock.symbol, e)
-        if db_lock:
-            with db_lock:
-                stock.last_error = str(e)[:500]
-                stock.last_checked_at = datetime.utcnow()
-                db.session.commit()
-        return False
+    filings = None
+    for attempt in range(2):
+        try:
+            filings = nse_session.shareholding(stock.symbol)
+            break
+        except Exception as e:
+            if attempt == 0 and ("403" in str(e) or "Forbidden" in str(e)):
+                try:
+                    nse_session._setCookies()
+                    time.sleep(0.3)
+                except Exception:
+                    pass
+            else:
+                logger.warning("filings fetch failed for %s: %s", stock.symbol, e)
+                if db_lock:
+                    with db_lock:
+                        stock.last_error = str(e)[:500]
+                        stock.last_checked_at = datetime.utcnow()
+                        db.session.commit()
+                return False
 
     if not filings:
         if db_lock:
@@ -239,6 +249,20 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
         failed = 0
         db_lock = threading.Lock()
 
+        thread_local = threading.local()
+
+        def get_thread_nse():
+            if not hasattr(thread_local, "nse"):
+                nse = NSE(app.config["NSE_DOWNLOAD_FOLDER"])
+                nse._session.headers.update({
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Referer": "https://www.nseindia.com/get-quotes/equity?symbol=SBIN",
+                })
+                thread_local.nse = nse
+            return thread_local.nse
+
         def process_single_stock(stock_id):
             nonlocal checked, updated, failed
             with app.app_context():
@@ -246,6 +270,7 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
                 if not stock_item:
                     return False
                 try:
+                    nse_session = get_thread_nse()
                     changed = refresh_stock(
                         nse_session, stock_item, request_delay=request_delay, db_lock=db_lock
                     )
@@ -272,18 +297,11 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
                             db.session.commit()
                     return False
 
-        with NSE(app.config["NSE_DOWNLOAD_FOLDER"]) as nse_session:
-            nse_session._session.headers.update({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Referer": "https://www.nseindia.com/get-quotes/equity?symbol=SBIN",
-            })
-            stock_ids = [s.id for s in stocks]
-            with ThreadPoolExecutor(max_workers=concurrency) as executor:
-                futures = [executor.submit(process_single_stock, sid) for sid in stock_ids]
-                for _ in as_completed(futures):
-                    pass
+        stock_ids = [s.id for s in stocks]
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            futures = [executor.submit(process_single_stock, sid) for sid in stock_ids]
+            for _ in as_completed(futures):
+                pass
 
         # Final log update
         with db_lock:
