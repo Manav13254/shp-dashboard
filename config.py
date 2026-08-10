@@ -42,3 +42,9 @@ class Config:
     # (e.g. your local machine, via local_refresh.py, or set
     # ENABLE_SCRAPER=true in env if you deploy somewhere NSE doesn't block).
     ENABLE_SCRAPER = os.environ.get("ENABLE_SCRAPER", "false").lower() == "true"
+
+    # Shared secret required to POST scraped data to /api/sync. Set this in
+    # your Render web service's environment variables, and use the SAME
+    # value in .env.local on your local machine. If unset, /api/sync is
+    # disabled entirely (safer default than leaving it open).
+    SYNC_SECRET = os.environ.get("SYNC_SECRET")
