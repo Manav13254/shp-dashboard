@@ -5,6 +5,8 @@ import re
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import os
+import requests
 from nse import NSE
 
 from .models import db, Stock, RefreshLog
@@ -28,33 +30,50 @@ if not hasattr(NSE, "_original_set_cookies"):
 
 def get_all_equity_symbols(nse_download_folder):
     """
-    Fetch the full list of NSE-listed equity symbols dynamically.
-    Uses NSE's official EQUITY_L.csv master list via the `nse` library.
+    Fetch the full list of NSE-listed equity symbols.
+    Tries live nsearchives fetch first; falls back to bundled EQUITY_L.csv if 403 occurs.
     """
-    with NSE(nse_download_folder) as nse:
-        nse._session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "*/*",
-            "Accept-Language": "en-US,en;q=0.9",
-        })
-        resp = nse._req(
-            "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
-        )
-        text = resp.text
-        lines = text.strip().split("\n")
-        header = lines[0].split(",")
-        symbol_idx = header.index("SYMBOL")
-        name_idx = header.index("NAME OF COMPANY")
+    csv_text = None
+    url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
 
-        symbols = []
-        for line in lines[1:]:
-            parts = line.split(",")
-            if len(parts) <= max(symbol_idx, name_idx):
-                continue
-            symbols.append(
-                {"symbol": parts[symbol_idx].strip(), "name": parts[name_idx].strip()}
-            )
-        return symbols
+    try:
+        resp = requests.get(url, headers=headers, timeout=12)
+        if resp.status_code == 200 and "SYMBOL" in resp.text:
+            csv_text = resp.text
+            logger.info("Successfully fetched live EQUITY_L.csv from nsearchives")
+    except Exception as e:
+        logger.warning("Failed to fetch live EQUITY_L.csv online: %s", e)
+
+    if not csv_text:
+        local_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "EQUITY_L.csv")
+        if os.path.exists(local_path):
+            with open(local_path, "r", encoding="utf-8") as f:
+                csv_text = f.read()
+            logger.info("Loaded local bundled EQUITY_L.csv master list")
+
+    if not csv_text:
+        logger.error("No equity symbols CSV data available!")
+        return []
+
+    lines = csv_text.strip().split("\n")
+    header = lines[0].split(",")
+    symbol_idx = header.index("SYMBOL")
+    name_idx = header.index("NAME OF COMPANY")
+
+    symbols = []
+    for line in lines[1:]:
+        parts = line.split(",")
+        if len(parts) <= max(symbol_idx, name_idx):
+            continue
+        symbols.append(
+            {"symbol": parts[symbol_idx].strip(), "name": parts[name_idx].strip()}
+        )
+    return symbols
 
 
 def _fetch_and_parse_filing(session, filing):
