@@ -16,15 +16,26 @@ def create_app(config_class=Config):
 
     logging.basicConfig(level=logging.INFO)
 
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    @event.listens_for(Engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        if type(dbapi_connection).__module__ == "sqlite3":
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute("PRAGMA journal_mode=WAL;")
+            except Exception:
+                pass
+            try:
+                cursor.execute("PRAGMA busy_timeout=10000;")
+            except Exception:
+                pass
+            cursor.close()
+
     db.init_app(app)
 
-    # Enable SQLite WAL mode & 10s busy timeout for concurrent read/write support
     with app.app_context():
-        engine = db.engine
-        if engine.dialect.name == "sqlite":
-            with engine.connect() as conn:
-                conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
-                conn.exec_driver_sql("PRAGMA busy_timeout=10000;")
         db.create_all()
 
         # Clean up any orphaned 'running' logs from previous server restarts
