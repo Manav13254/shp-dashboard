@@ -13,12 +13,30 @@ from .xbrl_parser import parse_xbrl
 logger = logging.getLogger(__name__)
 
 
+# Patch NSE._setCookies to be fault-tolerant against 403 Forbidden on cloud IPs
+def _safe_set_cookies(self):
+    try:
+        return self._original_set_cookies()
+    except Exception as e:
+        logger.warning("NSE cookie fetch bypassed (403 on cloud IP): %s", e)
+        return {}
+
+if not hasattr(NSE, "_original_set_cookies"):
+    NSE._original_set_cookies = NSE._setCookies
+    NSE._setCookies = _safe_set_cookies
+
+
 def get_all_equity_symbols(nse_download_folder):
     """
     Fetch the full list of NSE-listed equity symbols dynamically.
     Uses NSE's official EQUITY_L.csv master list via the `nse` library.
     """
     with NSE(nse_download_folder) as nse:
+        nse._session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+        })
         resp = nse._req(
             "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
         )
@@ -222,6 +240,11 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
                     return False
 
         with NSE(app.config["NSE_DOWNLOAD_FOLDER"]) as nse_session:
+            nse_session._session.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept": "*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+            })
             stock_ids = [s.id for s in stocks]
             with ThreadPoolExecutor(max_workers=concurrency) as executor:
                 futures = [executor.submit(process_single_stock, sid) for sid in stock_ids]
