@@ -42,17 +42,22 @@ def create_app(config_class=Config):
             pass
 
         # Clean up any orphaned 'running' logs from previous server restarts
-        from .models import RefreshLog
+        from .models import RefreshLog, Stock
+        from .scraper import bootstrap_all_stocks
         from datetime import datetime
+        import threading
+
         try:
             running_logs = RefreshLog.query.filter_by(status="running").all()
             for l in running_logs:
                 l.status = "done"
                 l.finished_at = l.finished_at or datetime.utcnow()
+            if running_logs:
+                db.session.commit()
+        except Exception:
+            pass
+
         # If DB has 0 stocks (fresh container deploy), trigger background bootstrap
-        from .models import Stock
-        from .scraper import bootstrap_all_stocks
-        import threading
         try:
             if Stock.query.count() == 0:
                 logging.info("Fresh database detected (0 stocks). Triggering background bootstrap...")
