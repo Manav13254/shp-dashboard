@@ -199,6 +199,13 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
         stocks = query.all()
         total_count = len(stocks)
 
+        if total_count == 0 and symbols is None:
+            logger.info("Database has 0 stocks. Automatically running bootstrap_all_stocks to populate NSE symbol master list...")
+            db.session.delete(log)
+            db.session.commit()
+            bootstrap_all_stocks(app)
+            return
+
         logger.info("Starting refresh for %d NSE stocks with %d parallel workers", total_count, concurrency)
 
         checked = 0
