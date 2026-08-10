@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from nse import NSE
 
-from . import bse_client
 from .models import db, Stock, RefreshLog
 from .xbrl_parser import parse_xbrl
 
@@ -40,22 +39,17 @@ def get_all_equity_symbols(nse_download_folder):
         return symbols
 
 
-def _fetch_and_parse_filing(session, filing, is_bse=False):
+def _fetch_and_parse_filing(session, filing):
     """
-    Download one filing's XBRL attachment and parse it.
+    Download one NSE filing's XBRL attachment and parse it.
     Returns parsed dict or None.
     """
     xbrl_url = filing.get("xbrl")
     if not xbrl_url:
         return None
     try:
-        if is_bse:
-            resp = session.get(xbrl_url, timeout=12)
-            resp.raise_for_status()
-            content = resp.content
-        else:
-            resp = session._req(xbrl_url)
-            content = resp.content
+        resp = session._req(xbrl_url)
+        content = resp.content
         parsed = parse_xbrl(content)
         parsed["submission_date"] = filing.get("submissionDate")
         return parsed
@@ -64,15 +58,8 @@ def _fetch_and_parse_filing(session, filing, is_bse=False):
         return None
 
 
-def _get_filings(nse_session, bse_session, stock_row_exchange, symbol_or_code):
-    """Returns filings list (latest-first) for either exchange, same shape."""
-    if stock_row_exchange == "BSE":
-        return bse_client.get_shareholding_filings(bse_session, symbol_or_code)
-    return nse_session.shareholding(symbol_or_code)
-
-
 def normalize_date(d_str):
-    """Normalize any NSE or BSE date string into standard DD-MM-YYYY format."""
+    """Normalize any NSE date string into standard DD-MM-YYYY format."""
     if not d_str:
         return None
     d_str = str(d_str).strip()
@@ -97,38 +84,19 @@ def normalize_date(d_str):
         except ValueError:
             pass
 
-    # 3. BSE format A: Jul 28 2026 7:06PM or Jul 16 2026 7:24PM
-    cleaned = re.sub(r"\s+", " ", d_str)
-    for fmt in ("%b %d %Y %I:%M%p", "%b %d %Y %I:%M %p", "%b %d %Y"):
-        try:
-            return datetime.strptime(cleaned, fmt).strftime("%d-%m-%Y")
-        except ValueError:
-            pass
-
-    # 4. BSE format B: 16/07/2026 19:24:00 or 16/07/2026
-    for fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y"):
-        try:
-            return datetime.strptime(d_str, fmt).strftime("%d-%m-%Y")
-        except ValueError:
-            pass
-
     return d_str
 
 
-def refresh_stock(nse_session, bse_session, stock, request_delay=0.1, db_lock=None):
+def refresh_stock(nse_session, stock, request_delay=0.1, db_lock=None):
     """
-    Fetch the filings list for `stock` (NSE or BSE, per stock.exchange),
+    Fetch the filings list for an NSE `stock`,
     take the latest 2, parse both, and update the Stock row in place.
     Returns True if changed, False if nothing changed. Thread-safe when db_lock is passed.
     """
-    is_bse = stock.exchange == "BSE"
-    lookup_key = stock.scrip_code if is_bse else stock.symbol
-    session = bse_session if is_bse else nse_session
-
     try:
-        filings = _get_filings(nse_session, bse_session, stock.exchange, lookup_key)
+        filings = nse_session.shareholding(stock.symbol)
     except Exception as e:
-        logger.warning("filings fetch failed for %s (%s): %s", stock.symbol, stock.exchange, e)
+        logger.warning("filings fetch failed for %s: %s", stock.symbol, e)
         if db_lock:
             with db_lock:
                 stock.last_error = str(e)[:500]
@@ -153,7 +121,7 @@ def refresh_stock(nse_session, bse_session, stock, request_delay=0.1, db_lock=No
                 db.session.commit()
         return False
 
-    latest_parsed = _fetch_and_parse_filing(session, latest_filing, is_bse=is_bse)
+    latest_parsed = _fetch_and_parse_filing(nse_session, latest_filing)
     if request_delay > 0:
         time.sleep(request_delay)
 
@@ -162,7 +130,7 @@ def refresh_stock(nse_session, bse_session, stock, request_delay=0.1, db_lock=No
     if len(filings) > 1:
         prev_filing = filings[1]
         prev_submission_date = normalize_date(prev_filing.get("submissionDate"))
-        prev_parsed = _fetch_and_parse_filing(session, prev_filing, is_bse=is_bse)
+        prev_parsed = _fetch_and_parse_filing(nse_session, prev_filing)
         if request_delay > 0:
             time.sleep(request_delay)
 
@@ -186,7 +154,6 @@ def refresh_stock(nse_session, bse_session, stock, request_delay=0.1, db_lock=No
 
         stock.last_checked_at = datetime.utcnow()
         stock.last_error = None
-        # Commit only if db_lock is not provided (standalone call)
         if not db_lock:
             db.session.commit()
 
@@ -196,10 +163,10 @@ def refresh_stock(nse_session, bse_session, stock, request_delay=0.1, db_lock=No
 
 def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
     """
-    Parallel multi-threaded refresh for all stocks.
-    Uses ThreadPoolExecutor to achieve high throughput across NSE + BSE filings.
+    Parallel multi-threaded refresh for all NSE stocks.
+    Uses ThreadPoolExecutor to achieve high throughput across NSE filings.
     """
-    concurrency = concurrency or app.config.get("SCRAPE_CONCURRENCY", 15)
+    concurrency = concurrency or app.config.get("SCRAPE_CONCURRENCY", 10)
     request_delay = request_delay if request_delay is not None else 0.05
 
     with app.app_context():
@@ -214,14 +181,12 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
         stocks = query.all()
         total_count = len(stocks)
 
-        logger.info("Starting refresh for %d stocks with %d parallel workers", total_count, concurrency)
+        logger.info("Starting refresh for %d NSE stocks with %d parallel workers", total_count, concurrency)
 
         checked = 0
         updated = 0
         failed = 0
         db_lock = threading.Lock()
-
-        bse_session = bse_client.make_bse_session()
 
         def process_single_stock(stock_id):
             nonlocal checked, updated, failed
@@ -231,7 +196,7 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
                     return False
                 try:
                     changed = refresh_stock(
-                        nse_session, bse_session, stock_item, request_delay=request_delay, db_lock=db_lock
+                        nse_session, stock_item, request_delay=request_delay, db_lock=db_lock
                     )
                     with db_lock:
                         checked += 1
@@ -256,15 +221,12 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
                             db.session.commit()
                     return False
 
-        try:
-            with NSE(app.config["NSE_DOWNLOAD_FOLDER"]) as nse_session:
-                stock_ids = [s.id for s in stocks]
-                with ThreadPoolExecutor(max_workers=concurrency) as executor:
-                    futures = [executor.submit(process_single_stock, sid) for sid in stock_ids]
-                    for _ in as_completed(futures):
-                        pass
-        finally:
-            bse_session.close()
+        with NSE(app.config["NSE_DOWNLOAD_FOLDER"]) as nse_session:
+            stock_ids = [s.id for s in stocks]
+            with ThreadPoolExecutor(max_workers=concurrency) as executor:
+                futures = [executor.submit(process_single_stock, sid) for sid in stock_ids]
+                for _ in as_completed(futures):
+                    pass
 
         # Final log update
         with db_lock:
@@ -284,11 +246,9 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
 
 def bootstrap_all_stocks(app):
     """
-    First-time setup: fetch full NSE + BSE equity symbol lists in high-speed bulk mode.
-    Deduplicates dual-listed stocks so each company appears ONLY ONCE (NSE preferred).
+    First-time setup: fetch full NSE equity symbol list.
     """
     with app.app_context():
-        # Track all existing symbols in DB (case-insensitive)
         existing_symbols = set(
             s.symbol.upper() for s in db.session.query(Stock.symbol).all()
         )
@@ -309,32 +269,5 @@ def bootstrap_all_stocks(app):
             db.session.add_all(new_nse_stocks)
             db.session.commit()
 
-        # BSE master list
-        bse_session = bse_client.make_bse_session()
-        try:
-            bse_symbols = bse_client.get_all_bse_equity_symbols(bse_session)
-        finally:
-            bse_session.close()
-        logger.info("Fetched %d BSE equity symbols", len(bse_symbols))
-
-        new_bse_stocks = []
-        for row in bse_symbols:
-            sym = (row["symbol"] or row["scrip_code"]).strip().upper()
-            # DEDUPLICATION: Only add BSE stock if it's NOT already listed on NSE
-            if sym not in existing_symbols:
-                new_bse_stocks.append(
-                    Stock(
-                        symbol=sym,
-                        company_name=row["name"],
-                        exchange="BSE",
-                        scrip_code=row["scrip_code"],
-                    )
-                )
-                existing_symbols.add(sym)
-
-        if new_bse_stocks:
-            db.session.add_all(new_bse_stocks)
-            db.session.commit()
-
-    # Run multi-threaded parallel refresh across all stocks
+    # Run multi-threaded parallel refresh across all NSE stocks
     run_refresh(app)

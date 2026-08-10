@@ -466,13 +466,6 @@ td.right { text-align: right; }
         <span class="search-clear" id="search-clear" onclick="clearSearch()">✕</span>
         <div class="suggestions-dropdown" id="suggestions-box"></div>
       </div>
-
-      <!-- Exchange Filter -->
-      <div class="pill-select">
-        <button class="pill-btn active" id="ex-all" onclick="setExchangeFilter('ALL')">ALL</button>
-        <button class="pill-btn" id="ex-nse" onclick="setExchangeFilter('NSE')">NSE</button>
-        <button class="pill-btn" id="ex-bse" onclick="setExchangeFilter('BSE')">BSE</button>
-      </div>
     </div>
 
     <div style="font-size: 13px; color: var(--text-sub); font-weight: 600;">
@@ -553,8 +546,7 @@ function onSearchInput() {
   }
 
   let matches = allStocks.filter(s =>
-    (exchangeFilter === 'ALL' || s.exchange === exchangeFilter) &&
-    (s.symbol.toUpperCase().includes(query) || (s.company_name || '').toUpperCase().includes(query))
+    s.symbol.toUpperCase().includes(query) || (s.company_name || '').toUpperCase().includes(query)
   ).slice(0, 15);
 
   if (!matches.length) {
@@ -570,7 +562,6 @@ function onSearchInput() {
       <div class="suggestion-left">
         <div class="suggestion-symbol">
           ${s.symbol}
-          <span class="exchange-badge ${s.exchange.toLowerCase()}">${s.exchange}</span>
         </div>
         <div class="suggestion-company">${s.company_name || ''}</div>
       </div>
@@ -685,7 +676,6 @@ function render() {
       <td class="col-stock">
         <div class="symbol-name">
           ${s.symbol}
-          <span class="exchange-badge ${s.exchange.toLowerCase()}">${s.exchange}</span>
         </div>
         <div class="company-title" title="${s.company_name || ''}">${s.company_name || ''}</div>
       </td>
