@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retail Exit Tracker — Shareholding Pattern Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-app:          #f8fafc;
+  --bg-card:         #ffffff;
+  --bg-card-hover:   #f1f5f9;
+  --bg-input:        #f1f5f9;
+  --border-color:    #e2e8f0;
+  --border-highlight:#cbd5e1;
+
+  --text-main:       #0f172a;
+  --text-sub:        #475569;
+  --text-muted:      #64748b;
+
+  --accent-primary:  #4f46e5;
+  --accent-glow:     rgba(79, 70, 229, 0.15);
+  --accent-secondary:#6366f1;
+  --accent-surface:  #eef2ff;
+
+  --badge-nse-bg:    #e0e7ff;
+  --badge-nse-txt:   #3730a3;
+  --badge-bse-bg:    #f3e8ff;
+  --badge-bse-txt:   #6b21a8;
+
+  --red-bg:          #fee2e2;
+  --red-border:      #fca5a5;
+  --red-txt:         #dc2626;
+
+  --green-bg:        #d1fae5;
+  --green-txt:       #15803d;
+
+  --shadow-lg:       0 10px 25px -5px rgba(15, 23, 42, 0.08);
+  --shadow-glow:     0 4px 14px rgba(79, 70, 229, 0.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Header Navbar */
+.navbar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+.brand-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+.brand-title span {
+  color: var(--accent-primary);
+}
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--green-bg);
+  color: var(--green-txt);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Container */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 28px;
+}
+
+/* Control Toolbar */
+.toolbar-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+.search-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 9px 36px 9px 36px;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 13px;
+  width: 320px;
+  transition: all 0.2s ease;
+}
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  background: #fff;
+}
+.search-clear {
+  position: absolute;
+  right: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: none;
+  font-size: 13px;
+}
+
+/* Autocomplete Suggestion Dropdown */
+.suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 380px;
+  background: #ffffff;
+  border: 1px solid var(--border-highlight);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 500;
+  display: none;
+}
+.suggestions-dropdown.open {
+  display: block;
+}
+.suggestion-item {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.15s ease;
+}
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+.suggestion-item:hover, .suggestion-item.selected {
+  background-color: var(--accent-surface);
+}
+.suggestion-left {
+  display: flex;
+  flex-direction: column;
+}
+.suggestion-symbol {
+  font-weight: 800;
+  font-size: 13.5px;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.suggestion-company {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggestion-change {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red-txt);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.pill-select {
+  display: flex;
+  background: var(--bg-input);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+.pill-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pill-btn.active {
+  background: var(--accent-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px var(--accent-glow);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: #fff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+.btn-primary:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-outline {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.btn-outline:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: var(--accent-surface);
+}
+
+/* Data Table Container */
+.table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.table-wrapper {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+thead th {
+  background: var(--bg-input);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+thead th.sortable {
+  cursor: pointer;
+}
+thead th.sortable:hover {
+  color: var(--accent-primary);
+}
+thead th.right { text-align: right; }
+thead th .sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  opacity: 0.4;
+}
+thead th.active-sort .sort-icon {
+  opacity: 1;
+  color: var(--accent-primary);
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.15s ease;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover {
+  background-color: var(--bg-card-hover);
+}
+
+td {
+  padding: 14px 22px;
+  font-size: 13px;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+td.right { text-align: right; }
+
+.symbol-name {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.company-title {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.exchange-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+}
+.exchange-badge.nse { background: var(--badge-nse-bg); color: var(--badge-nse-txt); }
+.exchange-badge.bse { background: var(--badge-bse-bg); color: var(--badge-bse-txt); }
+
+.drop-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12.5px;
+  background: var(--red-bg);
+  color: var(--red-txt);
+  border: 1px solid var(--red-border);
+}
+
+/* Empty / Loading State */
+.state-container {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-sub);
+}
+.state-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="brand-icon">SH</div>
+    <div>
+      <div class="brand-title">Shareholding <span>Dashboard</span></div>
+    </div>
+    <div class="live-pill">
+      <span class="pulse-dot"></span>
+      <span id="status-text">Connecting...</span>
+    </div>
+  </div>
+  
+  <div class="nav-actions">
+    <button class="btn-outline" onclick="exportCSV()">📥 Export CSV</button>
+    <button class="btn-primary" id="refresh-btn" onclick="triggerRefresh()">⚡ Refresh Data</button>
+  </div>
+</nav>
+
+<!-- Main Dashboard Container -->
+<main class="container">
+
+  <!-- Control Toolbar -->
+  <section class="toolbar-card">
+    <div class="filter-group">
+      <!-- Autocomplete Search Box -->
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" class="search-input" placeholder="Search by symbol or company…" oninput="onSearchInput()" onkeydown="onSearchKeyDown(event)" onfocus="onSearchInput()" autocomplete="off">
+        <span class="search-clear" id="search-clear" onclick="clearSearch()">✕</span>
+        <div class="suggestions-dropdown" id="suggestions-box"></div>
+      </div>
+
+      <!-- Exchange Filter -->
+      <div class="pill-select">
+        <button class="pill-btn active" id="ex-all" onclick="setExchangeFilter('ALL')">ALL</button>
+        <button class="pill-btn" id="ex-nse" onclick="setExchangeFilter('NSE')">NSE</button>
+        <button class="pill-btn" id="ex-bse" onclick="setExchangeFilter('BSE')">BSE</button>
+      </div>
+    </div>
+
+    <div style="font-size: 13px; color: var(--text-sub); font-weight: 600;">
+      Showing <span id="visible-count" class="mono" style="color: var(--text-main); font-weight: 800;">0</span> stocks
+    </div>
+  </section>
+
+  <!-- Main Data Table -->
+  <section class="table-card">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-stock" id="th-symbol">Stock Symbol</th>
+            <th class="col-curr right" id="th-latest">CURR %</th>
+            <th class="col-prev right" id="th-prev">PREV %</th>
+            <th class="col-change right sortable active-sort" onclick="sortBy('retail_change_pct')" id="th-change">CHANGE <span class="sort-icon">↓</span></th>
+            <th class="col-date right sortable" onclick="sortBy('last_submission_date')" id="th-date">DATE <span class="sort-icon">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr>
+            <td colspan="5">
+              <div class="state-container">
+                <div class="state-icon">⚡</div>
+                <div>Fetching live shareholding signals…</div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<script>
+let allStocks = [];
+let sortKey = 'retail_change_pct';
+let sortAsc = true;
+let exchangeFilter = 'ALL';
+let selectedSuggestionIndex = -1;
+
+function fmtPct(v) {
+  if (v === null || v === undefined) return '—';
+  return v.toFixed(2) + '%';
+}
+
+function fmtChange(v) {
+  if (v === null || v === undefined) return '—';
+  const sign = v > 0 ? '+' : '';
+  return `${sign}${v.toFixed(2)}%`;
+}
+
+function setExchangeFilter(ex) {
+  exchangeFilter = ex;
+  document.getElementById('ex-all').classList.toggle('active', ex === 'ALL');
+  document.getElementById('ex-nse').classList.toggle('active', ex === 'NSE');
+  document.getElementById('ex-bse').classList.toggle('active', ex === 'BSE');
+  onSearchInput();
+  render();
+}
+
+function onSearchInput() {
+  const input = document.getElementById('search-input');
+  const query = input.value.trim().toUpperCase();
+  const box = document.getElementById('suggestions-box');
+  const clearBtn = document.getElementById('search-clear');
+  clearBtn.style.display = query ? 'block' : 'none';
+
+  render();
+
+  if (!query) {
+    box.classList.remove('open');
+    box.innerHTML = '';
+    selectedSuggestionIndex = -1;
+    return;
+  }
+
+  let matches = allStocks.filter(s =>
+    (exchangeFilter === 'ALL' || s.exchange === exchangeFilter) &&
+    (s.symbol.toUpperCase().includes(query) || (s.company_name || '').toUpperCase().includes(query))
+  ).slice(0, 15);
+
+  if (!matches.length) {
+    box.classList.remove('open');
+    box.innerHTML = '';
+    selectedSuggestionIndex = -1;
+    return;
+  }
+
+  selectedSuggestionIndex = -1;
+  box.innerHTML = matches.map((s, i) => `
+    <div class="suggestion-item" id="sug-item-${i}" onclick="selectSuggestion('${s.symbol}')">
+      <div class="suggestion-left">
+        <div class="suggestion-symbol">
+          ${s.symbol}
+          <span class="exchange-badge ${s.exchange.toLowerCase()}">${s.exchange}</span>
+        </div>
+        <div class="suggestion-company">${s.company_name || ''}</div>
+      </div>
+      <div class="suggestion-change">↓ ${fmtChange(s.retail_change_pct)}</div>
+    </div>
+  `).join('');
+
+  box.classList.add('open');
+}
+
+function selectSuggestion(sym) {
+  const input = document.getElementById('search-input');
+  input.value = sym;
+  document.getElementById('search-clear').style.display = 'block';
+  document.getElementById('suggestions-box').classList.remove('open');
+  render();
+}
+
+function onSearchKeyDown(e) {
+  const box = document.getElementById('suggestions-box');
+  const items = box.querySelectorAll('.suggestion-item');
+  if (!box.classList.contains('open') || !items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    selectedSuggestionIndex = (selectedSuggestionIndex + 1) % items.length;
+    updateSuggestionHighlight(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectedSuggestionIndex = (selectedSuggestionIndex - 1 + items.length) % items.length;
+    updateSuggestionHighlight(items);
+  } else if (e.key === 'Enter') {
+    if (selectedSuggestionIndex >= 0 && items[selectedSuggestionIndex]) {
+      e.preventDefault();
+      items[selectedSuggestionIndex].click();
+    }
+  } else if (e.key === 'Escape') {
+    box.classList.remove('open');
+  }
+}
+
+function updateSuggestionHighlight(items) {
+  items.forEach((item, idx) => {
+    const isSel = idx === selectedSuggestionIndex;
+    item.classList.toggle('selected', isSel);
+    if (isSel) {
+      item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  });
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  document.getElementById('suggestions-box').classList.remove('open');
+  render();
+}
+
+document.addEventListener('click', (e) => {
+  const searchBox = document.querySelector('.search-box');
+  if (searchBox && !searchBox.contains(e.target)) {
+    const box = document.getElementById('suggestions-box');
+    if (box) box.classList.remove('open');
+  }
+});
+
+function render() {
+  const tbody = document.getElementById('tbody');
+  const query = document.getElementById('search-input').value.trim().toUpperCase();
+
+  let rows = allStocks;
+
+  // Filter Exchange
+  if (exchangeFilter !== 'ALL') {
+    rows = rows.filter(s => s.exchange === exchangeFilter);
+  }
+
+  // Filter Search
+  if (query) {
+    rows = rows.filter(s =>
+      s.symbol.toUpperCase().includes(query) ||
+      (s.company_name || '').toUpperCase().includes(query)
+    );
+  }
+
+  // Sort
+  rows = [...rows].sort((a, b) => {
+    const av = a[sortKey], bv = b[sortKey];
+    if (av === null || av === undefined) return 1;
+    if (bv === null || bv === undefined) return -1;
+    if (typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortAsc ? av - bv : bv - av;
+  });
+
+  document.getElementById('visible-count').textContent = rows.length.toLocaleString();
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5">
+          <div class="state-container">
+            <div class="state-icon">📭</div>
+            <div>No matching stocks found for your search query.</div>
+          </div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(s => `
+    <tr>
+      <td class="col-stock">
+        <div class="symbol-name">
+          ${s.symbol}
+          <span class="exchange-badge ${s.exchange.toLowerCase()}">${s.exchange}</span>
+        </div>
+        <div class="company-title" title="${s.company_name || ''}">${s.company_name || ''}</div>
+      </td>
+      <td class="col-curr right mono" style="font-weight: 700;">${fmtPct(s.retail_latest_pct)}</td>
+      <td class="col-prev right mono" style="color: var(--text-sub);">${fmtPct(s.retail_prev_pct)}</td>
+      <td class="col-change right mono">
+        <span class="drop-badge">↓ ${fmtChange(s.retail_change_pct)}</span>
+      </td>
+      <td class="col-date right mono" style="color: var(--text-sub); font-size: 12px;">${s.last_submission_date || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function sortBy(key) {
+  if (sortKey === key) {
+    sortAsc = !sortAsc;
+  } else {
+    sortKey = key;
+    sortAsc = true;
+  }
+
+  // Update header indicators
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('active-sort'));
+  const targetId = key === 'last_submission_date' ? 'th-date' : 'th-change';
+  const th = document.getElementById(targetId);
+  if (th) {
+    th.classList.add('active-sort');
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.textContent = sortAsc ? '↑' : '↓';
+  }
+
+  render();
+}
+
+function exportCSV() {
+  if (!allStocks.length) return;
+  const headers = ["Symbol", "Company", "Exchange", "Retail_Latest_%", "Retail_Prev_%", "Retail_Change_%", "Promoter_%", "FII_%", "DII_%", "Filing_Date"];
+  const rows = allStocks.map(s => [
+    s.symbol,
+    `"${(s.company_name || '').replace(/"/g, '""')}"`,
+    s.exchange,
+    s.retail_latest_pct || '',
+    s.retail_prev_pct || '',
+    s.retail_change_pct || '',
+    s.promoter_pct || '',
+    s.fii_pct || '',
+    s.dii_pct || '',
+    s.last_submission_date || ''
+  ]);
+  const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `retail_exit_signals_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+async function loadStocks() {
+  try {
+    const res = await fetch('/api/stocks');
+    allStocks = await res.json();
+    render();
+  } catch (err) {
+    console.error('Failed to load stocks:', err);
+  }
+}
+
+async function loadStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    const statusText = document.getElementById('status-text');
+
+    if (data && data.last_refresh && data.last_refresh.status === 'running') {
+      const checked = data.last_refresh.checked || 0;
+      const total = data.total_stocks || 7512;
+      const pct = Math.round((checked / total) * 100);
+      statusText.textContent = `⚡ Refreshing ${pct}% (${checked.toLocaleString()} / ${total.toLocaleString()})`;
+    } else {
+      let timeStr = '';
+      if (data && data.last_refresh && data.last_refresh.finished_at) {
+        const rawDate = data.last_refresh.finished_at;
+        const dt = new Date(rawDate.endsWith('Z') ? rawDate : rawDate + 'Z');
+        if (!isNaN(dt.getTime())) {
+          const day = String(dt.getDate()).padStart(2, '0');
+          const month = String(dt.getMonth() + 1).padStart(2, '0');
+          const year = dt.getFullYear();
+          const hours = String(dt.getHours()).padStart(2, '0');
+          const mins = String(dt.getMinutes()).padStart(2, '0');
+          timeStr = ` ${day}-${month}-${year} ${hours}:${mins}`;
+        }
+      }
+      statusText.textContent = `● Updated${timeStr}`;
+    }
+  } catch (err) {
+    console.error('Status fetch error:', err);
+    document.getElementById('status-text').textContent = '● Updated';
+  }
+}
+
+async function triggerRefresh() {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.textContent = '⚡ Refreshing…';
+  await fetch('/api/refresh', { method: 'POST' });
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = '⚡ Refresh Data';
+    loadStocks();
+  }, 4000);
+}
+
+// Initial Load & Auto-Poll
+loadStocks();
+loadStatus();
+setInterval(loadStatus, 10000);
+</script>
+
+</body>
+</html>

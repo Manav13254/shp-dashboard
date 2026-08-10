@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+shp_dashboard.db
+shp_dashboard.db-wal
+shp_dashboard.db-shm
+
+# Download & Cache folders (NSE / BSE downloaded XBRL files & cookies)
+nse_downloads/
+bse_downloads/
+
+# Environment variables & secrets
+.env
+.env.local
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Temporary files
+*.log
+scratch/
