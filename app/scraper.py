@@ -15,12 +15,19 @@ from .xbrl_parser import parse_xbrl
 logger = logging.getLogger(__name__)
 
 
-# Patch NSE._setCookies to be fault-tolerant against 403 Forbidden on cloud IPs
+# Patch NSE._setCookies to prime cookies reliably via get-quotes endpoint
 def _safe_set_cookies(self):
+    try:
+        r = self._session.get("https://www.nseindia.com/get-quotes/equity?symbol=SBIN", timeout=12)
+        if r.status_code == 200:
+            return r.cookies
+    except Exception as e:
+        logger.warning("Primary NSE get-quotes cookie fetch failed: %s", e)
+
     try:
         return self._original_set_cookies()
     except Exception as e:
-        logger.warning("NSE cookie fetch bypassed (403 on cloud IP): %s", e)
+        logger.warning("Secondary NSE option-chain cookie fetch failed: %s", e)
         return {}
 
 if not hasattr(NSE, "_original_set_cookies"):
@@ -268,8 +275,9 @@ def run_refresh(app, symbols=None, concurrency=None, request_delay=None):
         with NSE(app.config["NSE_DOWNLOAD_FOLDER"]) as nse_session:
             nse_session._session.headers.update({
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "Accept": "*/*",
+                "Accept": "application/json, text/plain, */*",
                 "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://www.nseindia.com/get-quotes/equity?symbol=SBIN",
             })
             stock_ids = [s.id for s in stocks]
             with ThreadPoolExecutor(max_workers=concurrency) as executor:
