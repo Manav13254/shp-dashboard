@@ -124,8 +124,8 @@ body {
 
 /* Container */
 .container {
-  max-width: 1100px;
-  margin: 0 auto;
+  max-width: 820px;
+  margin: 0;
   padding: 24px 28px;
 }
 
@@ -329,9 +329,13 @@ body {
 }
 table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   text-align: left;
 }
+
+.col-stock { width: 46%; }
+.col-curr, .col-prev, .col-change, .col-date { width: 13.5%; }
 
 thead th {
   background: var(--bg-input);
@@ -340,7 +344,7 @@ thead th {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  padding: 14px 22px;
+  padding: 14px 14px;
   border-bottom: 1px solid var(--border-color);
   cursor: default;
   user-select: none;
@@ -374,10 +378,12 @@ tbody tr:hover {
 }
 
 td {
-  padding: 14px 22px;
+  padding: 12px 14px;
   font-size: 13px;
   color: var(--text-main);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 td.right { text-align: right; }
 
